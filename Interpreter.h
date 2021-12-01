@@ -7,6 +7,7 @@ private:
     DatalogProgram* dlp;
     std::vector<Relation*> relations;
     std::vector<Relation*> results; //vec of relations produced by queries
+    size_t rounds = 0;
 public:
     Interpreter(DatalogProgram* d){dlp = d;}
     void run(){
@@ -30,7 +31,13 @@ public:
                 }
             }
         }
+        std::vector<Rule*> rules = dlp->getR(); //list out new tuples made, also track number of loops
+        cout << "Rule Evaluation\n";
+        while(evalRules(rules));
+        cout << "\nSchemes populated after " << rounds << " passes through the Rules.\n\n";
+
         std::vector<Predicate*> queries = dlp->getQ();
+        cout << "Query Evaluation\n";
         for(size_t i=0; i<queries.size(); i++){
             for(size_t j=0; j<relations.size(); j++){
                 if(queries[i]->getName() == relations[j]->getName()){
@@ -39,9 +46,53 @@ public:
                     queries[i]->toString();
                     cout << ")? ";
                     results[i]->toString();
-                }
+                } //like headers joined in join function
             }
         } //for loop for all queries, assign rel to header that matches
+    }
+
+    bool evalRules(std::vector<Rule*> rules){ //make sure the individual rule values are checked for differences?
+        bool redo = false; // make relations only output changes once, make only changes inside for loop and output values
+        for(size_t i=0; i<rules.size(); i++){ //loop of all the rules given
+            std::vector<Relation*> temp;
+            for(size_t j=0; j<rules[i]->pSize(); j++){ // matches rules with relations and adds params for the rule to temp
+                for(size_t k=0; k<relations.size(); k++) {
+                    if(rules[i]->at(j)->getName() == relations[k]->getName()){
+                        temp.push_back(evalPred(relations[k], rules[i]->at(j)));
+                    } //for each pred in each rule match with a relation
+                }
+            }
+            for (size_t j=1; j<temp.size(); j++){ //joins each in temp to the first and sets result equal to it
+                temp[0] = temp[0]->join(temp[j]);
+            } Relation* result = temp[0];
+            std::vector<int> pos;
+            std::vector<std::string> val;
+            for(size_t j=0; j<rules[i]->getHead()->pSize(); j++){ //get duplicate headers
+                for(size_t k=0; k<result->getHead()->size(); k++){
+                    if(rules[i]->getHead()->at(j)->getDesc() == result->getHead()->at(k))
+                        pos.push_back(k);
+                }
+            }
+            for(size_t j=0; j<relations.size(); j++){ //sets val to the relation that matches the rule head
+                if(rules[i]->getHead()->getName() == relations.at(j)->getName())
+                    val = relations.at(j)->getHead()->getVals();
+            }
+            result = result->project(pos);
+            result = result->rename(val);
+            result->setName(rules[i]->getHead()->getName());
+            rules[i]->toString();
+            for(size_t j=0; j<relations.size(); j++){ //loops relations to unite results
+                //if(relations.at(j)->getName() == result->getName())  );
+                if(relations.at(j)->getName() == result->getName()) {
+                    //result->removeDup(relations.at(j));
+                    if (relations.at(j)->unite(result)) {
+                        //ruleString(result);
+                        redo = true;
+                    }
+                }
+            }
+        } rounds++;
+        return redo;
     }
     Relation* evalPred(Relation* rel, Predicate* query){
         std::vector<int> pos;
