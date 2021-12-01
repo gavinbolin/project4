@@ -8,7 +8,7 @@ public:
     bool operator<(const Tuple &rhs) const {return values < rhs.values;}
     bool operator==(const Tuple &rhs) const {return values == rhs.values;}
     std::string at(size_t i){return values[i];}
-    int size(){values.size();}
+    size_t size(){return values.size();}
     void toString(){
         for(size_t i=0; i<values.size(); i++){
             cout << values[i];
